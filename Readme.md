@@ -2,22 +2,28 @@
 
 This is a minimal, complete Maven project demonstrating how to connect to an AWS S3 bucket using the **AWS SDK for Java v2**.
 
-The program connects using **static credentials** (an Access Key ID and a Secret Access Key) and performs a simple read operation: **listing all available S3 buckets** to verify the connection is working correctly.
+The program connects using **credentials from environment variables** (loaded from a `.env` file) and performs:
+1. **List all available S3 buckets** to verify the connection
+2. **Upload a dummy object** to a specified bucket
 
-## 🚨 Security Warning: Do Not Use in Production!
 
-This project intentionally hardcodes AWS credentials in the `.java` file for demonstration purposes only. This is a **major security risk** and should **NEVER** be done in production code.
+## 🚨 Security Notice
 
-```java
-private static final String AWS_ACCESS_KEY = "YOUR_AWS_ACCESS_KEY_ID";
-private static final String AWS_SECRET_KEY = "YOUR_AWS_SECRET_ACCESS_KEY";
+This project uses environment variables loaded from a `.env` file instead of hardcoding credentials. The `.env` file is added to `.gitignore` and will **never be committed** to version control.
+
+### Credentials are loaded from `.env`:
+```
+AWS_ACCESS_KEY_ID=your_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_here
+AWS_REGION=eu-central-1
+S3_BUCKET_NAME=your_bucket_name
 ```
 
-### For Production: Use Environment Variables or IAM Roles
+### For Production: Use IAM Roles or Credential Chains
 
 - **AWS Lambda**: Use IAM roles attached to the Lambda function
 - **EC2 instances**: Use IAM instance profiles
-- **Local development**: Use environment variables via `~/.aws/credentials` or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- **Local development**: Use `~/.aws/credentials` file or environment variables
 - **Applications**: Use AWS credential provider chain (default behavior)
 
 ---
@@ -48,42 +54,25 @@ mvn -version
 ```
 .
 ├── pom.xml                           # Maven configuration (dependencies, build plugins)
+├── .env.example                      # Template for environment variables (commit to Git)
+├── .env                              # Actual credentials (NEVER commit - in .gitignore)
+├── .gitignore                        # Excludes .env and other sensitive files
 ├── Readme.md                         # This file
 └── src/
     └── main/
         ├── java/
-        │   └── S3ConnectionDemo.java # Main application code
+        │   └── pt/goncalo/
+        │       └── S3ConnectionDemo.java # Main application code
         └── resources/
             └── logback.xml           # Logging configuration
 ```
-
-### Key Dependencies
-
-- **AWS SDK for Java v2** (v2.26.12)
-  - `software.amazon.awssdk:s3` - S3 client library
-  - `software.amazon.awssdk:bom` - Bill of Materials for consistent versioning
-
-- **Logging**
-  - `org.slf4j:slf4j-api` (v2.0.11) - SLF4J logging facade
-  - `ch.qos.logback:logback-classic` (v1.5.0) - Logback implementation for SLF4J
 
 ### Build Configuration
 
 - **Java Source/Target**: Java 25
 - **Build Plugin**: `exec-maven-plugin` (for easy execution)
 - **Main Class**: `pt.goncalo.S3ConnectionDemo`
-
-### Logging Configuration
-
-Logging is configured via `src/main/resources/logback.xml`:
-- **Console output**: Formatted logs with timestamp, thread, level, logger name, and message
-- **Root logger**: INFO level by default
-- **AWS SDK logger**: Set to WARN to reduce noise
-- **Application logger**: Set to DEBUG for detailed application logs
-
-You can modify the log levels in `logback.xml` to control verbosity.
-
----
+- **Package**: `pt.goncalo`
 
 ## Setup Instructions
 
@@ -93,7 +82,13 @@ You can modify the log levels in `logback.xml` to control verbosity.
 cd /path/to/s3-java-playground
 ```
 
-### Step 2: Get Your AWS Credentials
+### Step 2: Create `.env` File from Template
+
+```bash
+cp .env.example .env
+```
+
+### Step 3: Get Your AWS Credentials
 
 1. Log in to your [AWS Management Console](https://console.aws.amazon.com)
 2. Navigate to **IAM** → **Users** → Select your user
@@ -101,28 +96,23 @@ cd /path/to/s3-java-playground
 4. Click **Create access key**
 5. Copy your **Access Key ID** and **Secret Access Key**
 
-### Step 3: Configure Credentials in the Code
+### Step 4: Configure the `.env` File
 
-Open `src/main/java/S3ConnectionDemo.java` and replace:
+Edit `.env` and replace the placeholder values:
 
-```java
-private static final String AWS_ACCESS_KEY = "YOUR_AWS_ACCESS_KEY_ID";
-private static final String AWS_SECRET_KEY = "YOUR_AWS_SECRET_ACCESS_KEY";
-private static final Region AWS_REGION = Region.US_EAST_1; // Change if needed
+```bash
+AWS_ACCESS_KEY_ID=REPLACE_ME
+AWS_SECRET_ACCESS_KEY=REPLACE_ME
+AWS_REGION=REPLACE_ME
+S3_BUCKET_NAME=my-bucket-name
 ```
 
-With your actual credentials and desired region.
+⚠️ **Important**: 
+- The `.env` file is listed in `.gitignore` and will never be committed to Git
+- Never share your `.env` file or commit it to version control
+- Rotate credentials regularly for security
 
-**Example:**
-```java
-private static final String AWS_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";
-private static final String AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-private static final Region AWS_REGION = Region.US_WEST_2;
-```
-
-⚠️ **Important**: Never commit credentials to version control!
-
-### Step 4: Build the Project
+### Step 5: Build the Project
 
 ```bash
 mvn clean install
@@ -130,7 +120,7 @@ mvn clean install
 
 This command:
 - Cleans previous builds
-- Downloads dependencies (including SLF4J and Logback)
+- Downloads dependencies (including dotenv-java)
 - Compiles the source code
 - Packages the application
 
@@ -154,136 +144,71 @@ mvn compile
 mvn exec:java
 ```
 
-### Option 3: Run the Compiled Class Directly
+### Output
 
-```bash
-# Compile
-mvn compile
+The application will:
+1. Load credentials from `.env` file
+2. Create an S3 client
+3. List all your S3 buckets
+4. Upload a dummy object to the specified bucket
 
-# Run (requires all dependencies in classpath)
-java -cp "target/classes:$(mvn dependency:build-classpath -q -Dmdep.outputFile=/dev/stdout)" pt.goncalo.S3ConnectionDemo
+Example output:
 ```
+Successfully created S3 client.
+AWS Region: eu-central-1
+Attempting to list buckets...
 
-### Logging Output
+📦 Your S3 Buckets:
+   ✓ my-bucket-1
+   ✓ my-bucket-2
+   ✓ backup-bucket
 
-The application uses **SLF4J with Logback** for logging. All logs will be printed to the console with the following format:
+✅ SUCCESS! Found 3 bucket(s)
 
+Attempting to upload dummy object to bucket: my-bucket-1
+✅ Object uploaded successfully!
+   Bucket: my-bucket-1
+   Key: demo/dummy-object-1761865713382.txt
+   ETag: "6f4e3d4a0e497f468dd5dd7ab51f5152"
 ```
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Successfully created S3 client.
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Attempting to list buckets...
-```
-
-To adjust log verbosity, edit `src/main/resources/logback.xml` and change the log levels:
-- `DEBUG`: Very detailed logging
-- `INFO`: General informational messages (default)
-- `WARN`: Warning messages only
-- `ERROR`: Errors only
 
 ---
 
-## Expected Output
+## Code Structure
 
-If everything is configured correctly, you should see:
+The application is organized into separate methods for clarity:
 
-```
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Successfully created S3 client.
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Attempting to list buckets...
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - 
-Your S3 Buckets:
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo -   - my-bucket-1  
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo -   - my-bucket-2  
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo -   - backup-bucket  
-```
+### `main()`
+- Loads credentials from `.env` file
+- Validates credentials
+- Creates S3 client
+- Calls `listBuckets()` and `uploadDummyObject()` methods
 
-### If No Buckets Are Found
+### `listBuckets(S3Client s3Client)`
+- Lists all S3 buckets in the AWS account
+- Displays bucket names with checkmarks
+- Shows total bucket count
 
-```
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Successfully created S3 client.
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - Attempting to list buckets...
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo - 
-Your S3 Buckets:
-2025-10-30 14:23:45 [main] INFO  pt.goncalo.S3ConnectionDemo -   (No buckets found or no permission to list)
-```
-
-This could mean:
-- Your AWS account has no S3 buckets
-- Your IAM user lacks `s3:ListAllMyBuckets` permission
-
-### If an Error Occurs
-
-```
-2025-10-30 14:23:45 [main] ERROR pt.goncalo.S3ConnectionDemo - Error communicating with S3:
-2025-10-30 14:23:45 [main] ERROR pt.goncalo.S3ConnectionDemo - Error Code:    InvalidAccessKeyId
-2025-10-30 14:23:45 [main] ERROR pt.goncalo.S3ConnectionDemo - Error Message: The AWS Access Key Id provided does not exist in our records.
-2025-10-30 14:23:45 [main] ERROR pt.goncalo.S3ConnectionDemo - 
-Check your credentials, region, and permissions.
-```
-
-Common issues:
-- **InvalidAccessKeyId**: Wrong Access Key ID
-- **SignatureDoesNotMatch**: Wrong Secret Access Key
-- **AccessDenied**: User lacks required S3 permissions
-- **RegionNotFound**: Invalid AWS region specified
-
----
-
-## Code Explanation
-
-The program performs the following steps:
-
-1. **Initializes Logger**: Creates a SLF4J logger for the application
-2. **Creates AWS Credentials**: Uses `AwsBasicCredentials` with your access key and secret key
-3. **Initializes S3 Client**: Builds an S3 client with the specified region
-4. **Lists Buckets**: Calls `listBuckets()` to retrieve all S3 buckets in the account
-5. **Displays Results**: Uses logger to print bucket names or error messages
-6. **Handles Exceptions**: Catches and logs S3-specific and general exceptions
-
-Key classes:
-- `AwsBasicCredentials`: Represents AWS access credentials
-- `StaticCredentialsProvider`: Provides credentials to the S3 client
-- `S3Client`: Main client for interacting with AWS S3
-- `ListBucketsResponse`: Response object containing bucket list
-- `S3Exception`: S3-specific error handling
-- `Logger` (SLF4J): For application logging
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| `Cannot find symbol: class S3Client` | Run `mvn clean install` to download dependencies |
-| `Logs not printing` | Ensure `logback.xml` exists in `src/main/resources/` and Logback dependency is in pom.xml |
-| `AccessDenied` error for S3 operations | **Your IAM user lacks S3 permissions.** See `S3_PERMISSIONS_GUIDE.md` for detailed setup instructions |
-| `Maven not found` | Ensure Maven is installed and added to PATH. Run `mvn -version` |
-| `InvalidAccessKeyId error` | Verify your Access Key ID is correct |
-| `SignatureDoesNotMatch error` | Verify your Secret Access Key is correct |
-| `AuthorizationHeaderMalformed error` | Check credentials are correctly pasted (no extra spaces/newlines) |
-| No buckets found | Create an S3 bucket or check IAM permissions (see `S3_PERMISSIONS_GUIDE.md`) |
-| Java compilation error about module/records | Ensure Java 25 is installed: `java -version` |
+### `uploadDummyObject(S3Client s3Client, String bucketName)`
+- Creates a timestamped dummy text object
+- Uploads it to the specified bucket
+- Returns the object key and ETag
 
 ---
 
 ## Quick Start Summary
 
 ```bash
-# 1. Navigate to project
-cd s3-java-playground
+# 1. Set up environment
+cp .env.example .env
+nano .env  # Add your credentials
 
-# 2. Edit credentials in S3ConnectionDemo.java
-nano src/main/java/S3ConnectionDemo.java
-
-# 3. Build and run
+# 2. Build
 mvn clean install
+
+# 3. Run
 mvn exec:java
 ```
-
----
-
-## Documentation Files
-
-- **`S3_PERMISSIONS_GUIDE.md`** - Comprehensive guide for fixing S3 permission issues (READ THIS if you get AccessDenied errors)
-- **`LOGGING_REFACTOR.md`** - Summary of SLF4J and Logback logging setup
 
 ---
 
